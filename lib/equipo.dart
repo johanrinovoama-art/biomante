@@ -1,4 +1,7 @@
 class Equipo {
+  /// Identificador interno estable. No depende del código de inventario.
+  final String id;
+
   String nombre;
   String marca;
   String modelo;
@@ -11,6 +14,7 @@ class Equipo {
   DateTime? proximoMantenimiento;
 
   Equipo({
+    String? id,
     required this.nombre,
     required this.marca,
     required this.modelo,
@@ -20,5 +24,11 @@ class Equipo {
     required this.estado,
     this.ultimoMantenimiento,
     this.proximoMantenimiento,
-  });
+  }) : id = (id == null || id.trim().isEmpty)
+            ? _crearId()
+            : id.trim();
+
+  static String _crearId() {
+    return 'eq_${DateTime.now().microsecondsSinceEpoch}';
+  }
 }

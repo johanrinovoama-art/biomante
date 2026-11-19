@@ -1,17 +1,54 @@
-# flutter_application_1
+# Biomante
 
-A new Flutter project.
+**Biomante** es una aplicación Flutter orientada a la gestión del inventario y del mantenimiento de equipos biomédicos.
 
-## Getting Started
+## Funcionalidades actuales
 
-This project is a starting point for a Flutter application.
+- Registro y consulta de equipos biomédicos.
+- Ficha técnica básica por equipo.
+- Registro de mantenimiento preventivo y correctivo.
+- Historial de intervenciones por equipo.
+- Asociación y consulta de manuales y documentos PDF.
+- Asistente técnico inicial basado en reglas.
+- Panel principal con resumen de equipos y mantenimientos.
 
-A few resources to get you started if this is your first Flutter project:
+## Tecnologías
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter y Dart.
+- SharedPreferences para persistencia de datos estructurados locales.
+- Sembast para almacenamiento independiente de documentos.
+- Sembast Web / IndexedDB para navegador.
+- Sembast IO para Android, iOS y escritorio.
+- File Picker y Syncfusion PDF Viewer para documentos PDF.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Preparar el proyecto
+
+Desde la carpeta raíz del proyecto:
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+```
+
+Para ejecutar en Chrome:
+
+```bash
+flutter run -d chrome
+```
+
+## Persistencia
+
+Los equipos, mantenimientos y metadatos de documentos se guardan localmente. Los PDF se almacenan por separado: en IndexedDB para web y en el directorio privado de soporte de la aplicación para plataformas nativas.
+
+> Los datos locales no se sincronizan automáticamente entre dispositivos. Para un despliegue multiusuario se requiere incorporar un backend y autenticación.
+
+## Documentación del proyecto
+
+- [Manual de usuario](docs/manual_usuario.md)
+- [Manual técnico](docs/manual_tecnico.md)
+- [Backend del asistente IA](backend/README.md)
+
+## Estado del desarrollo
+
+Biomante está en desarrollo académico. Los módulos de checklist, pruebas funcionales, evidencias fotográficas, indicadores, reportes PDF y QR están incorporados en la rama de estabilización. La IA requiere desplegar el backend y configurar credenciales del proveedor.
