@@ -36,20 +36,20 @@ class _AsistenteTecnicoPageState
       ..sort((x, y) => y.fecha.compareTo(x.fecha));
 
     final ultimos = historial.take(5).map((mantenimiento) {
-      return '- §{mantenimiento.fecha.toIso8601String()}: §{mantenimiento.tipo}; '
-          'resultado: §{mantenimiento.resultado}; '
-          'fallas: §{mantenimiento.fallas}; trabajo: §{mantenimiento.descripcion}';
+      return '- \${mantenimiento.fecha.toIso8601String()}: \${mantenimiento.tipo}; '
+          'resultado: \${mantenimiento.resultado}; '
+          'fallas: \${mantenimiento.fallas}; trabajo: \${mantenimiento.descripcion}';
     }).join('\n');
 
     return '''
-Equipo: §{widget.equipo.nombre}
-Marca: §{widget.equipo.marca}
-Modelo: §{widget.equipo.modelo}
-Inventario: §{widget.equipo.inventario}
-Estado registrado: §{widget.equipo.estado}
+Equipo: \${widget.equipo.nombre}
+Marca: \${widget.equipo.marca}
+Modelo: \${widget.equipo.modelo}
+Inventario: \${widget.equipo.inventario}
+Estado registrado: \${widget.equipo.estado}
 
 Últimas intervenciones:
-§{ultimos.isEmpty ? "No hay mantenimientos previos registrados." : ultimos}
+\${ultimos.isEmpty ? "No hay mantenimientos previos registrados." : ultimos}
 ''';
   }
 
