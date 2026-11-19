@@ -4,7 +4,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'datos.dart';
-import 'detalle_equipo.dart';
 import 'equipo.dart';
 
 class CodigoQrEquipoPage extends StatelessWidget {
@@ -70,9 +69,10 @@ class CodigoQrEquipoPage extends StatelessWidget {
                     );
                     return;
                   }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => DetalleEquipoPage(equipo: coincide.first)),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Equipo identificado: ${coincide.first.nombre}'),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.qr_code_scanner),
