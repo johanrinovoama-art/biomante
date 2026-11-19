@@ -20,6 +20,8 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Check AI backend syntax
+        run: node --check backend/server.mjs
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
