@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'asistente_ia_service.dart';
+import 'datos.dart';
 import 'equipo.dart';
 
 class AsistenteTecnicoPage extends StatefulWidget {
@@ -20,27 +23,63 @@ class _AsistenteTecnicoPageState
       TextEditingController();
 
   final List<Map<String, String>> mensajes = [];
+  bool enviando = false;
 
-  void enviarPregunta() {
+  String construirContexto() {
+    final historial = mantenimientos.where((mantenimiento) {
+      if (mantenimiento.equipoId.isNotEmpty) {
+        return mantenimiento.equipoId == widget.equipo.id;
+      }
+      return widget.equipo.inventario.trim().isNotEmpty &&
+          mantenimiento.equipoInventario.trim() == widget.equipo.inventario.trim();
+    }).toList()
+      ..sort((x, y) => y.fecha.compareTo(x.fecha));
+
+    final ultimos = historial.take(5).map((mantenimiento) {
+      return '- §{mantenimiento.fecha.toIso8601String()}: §{mantenimiento.tipo}; '
+          'resultado: §{mantenimiento.resultado}; '
+          'fallas: §{mantenimiento.fallas}; trabajo: §{mantenimiento.descripcion}';
+    }).join('\n');
+
+    return '''
+Equipo: §{widget.equipo.nombre}
+Marca: §{widget.equipo.marca}
+Modelo: §{widget.equipo.modelo}
+Inventario: §{widget.equipo.inventario}
+Estado registrado: §{widget.equipo.estado}
+
+Últimas intervenciones:
+§{ultimos.isEmpty ? "No hay mantenimientos previos registrados." : ultimos}
+''';
+  }
+
+  Future<void> enviarPregunta() async {
     final pregunta = controlador.text.trim();
-
-    if (pregunta.isEmpty) {
-      return;
-    }
+    if (pregunta.isEmpty || enviando) return;
 
     setState(() {
-      mensajes.add({
-        'tipo': 'usuario',
-        'texto': pregunta,
-      });
-
-      mensajes.add({
-        'tipo': 'asistente',
-        'texto': generarRespuesta(pregunta),
-      });
+      mensajes.add({'tipo': 'usuario', 'texto': pregunta});
+      enviando = true;
     });
-
     controlador.clear();
+
+    String respuesta;
+    try {
+      respuesta = await AsistenteIaService.responder(
+            contextoEquipo: construirContexto(),
+            pregunta: pregunta,
+          ) ??
+          generarRespuesta(pregunta);
+    } catch (error) {
+      debugPrint('No fue posible consultar el servicio IA: $error');
+      respuesta = generarRespuesta(pregunta);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      mensajes.add({'tipo': 'asistente', 'texto': respuesta});
+      enviando = false;
+    });
   }
 
   String generarRespuesta(String pregunta) {
@@ -191,6 +230,16 @@ Con esos datos puedo ayudarte a establecer posibles causas, comprobaciones y una
             ),
           ),
 
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Chip(
+                avatar: Icon(AsistenteIaService.configurado ? Icons.cloud_done : Icons.offline_bolt, size: 18),
+                label: Text(AsistenteIaService.configurado ? 'IA conectada mediante servidor' : 'Orientación local · IA externa sin configurar'),
+              ),
+            ),
+          ),
           // MENSAJES
           Expanded(
             child: mensajes.isEmpty
@@ -266,6 +315,7 @@ Con esos datos puedo ayudarte a establecer posibles causas, comprobaciones y una
                   ),
           ),
 
+          if (enviando) const LinearProgressIndicator(),
           // CAMPO DE PREGUNTA
           SafeArea(
             child: Padding(
@@ -277,8 +327,7 @@ Con esos datos puedo ayudarte a establecer posibles causas, comprobaciones y una
                       controller: controlador,
                       textInputAction:
                           TextInputAction.send,
-                      onSubmitted: (_) =>
-                          enviarPregunta(),
+                      onSubmitted: (_) { enviarPregunta(); },
                       decoration: InputDecoration(
                         hintText:
                             'Describe la falla...',
@@ -292,7 +341,7 @@ Con esos datos puedo ayudarte a establecer posibles causas, comprobaciones y una
                   const SizedBox(width: 8),
                   FloatingActionButton(
                     mini: true,
-                    onPressed: enviarPregunta,
+                    onPressed: enviando ? null : enviarPregunta,
                     child: const Icon(Icons.send),
                   ),
                 ],
