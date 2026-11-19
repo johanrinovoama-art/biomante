@@ -6,6 +6,7 @@ import 'mantenimiento.dart';
 import 'historial.dart';
 import 'pruebas_funcionales.dart';
 import 'codigo_qr.dart';
+import 'informe_tecnico.dart';
 
 class DetalleEquipoPage extends StatelessWidget {
   final Equipo equipo;
@@ -371,6 +372,23 @@ class DetalleEquipoPage extends StatelessWidget {
                 },
                 icon: const Icon(Icons.qr_code_2),
                 label: const Text('Generar código QR'),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(18)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => InformeTecnicoPage(equipo: equipo),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.picture_as_pdf),
+                label: const Text('Generar informe técnico PDF'),
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(18)),
               ),
             ),
