@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'datos.dart';
 import 'equipos.dart';
 import 'registrar_equipo.dart';
+import 'reportes.dart';
+import 'codigo_qr.dart';
+import 'detalle_equipo.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -224,7 +227,44 @@ class _InicioPageState extends State<InicioPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              _BotonAccion(
+                icono: Icons.analytics,
+                texto: 'Indicadores y reportes',
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ReportesPage()),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              _BotonAccion(
+                icono: Icons.qr_code_scanner,
+                texto: 'Escanear código QR',
+                onPressed: () async {
+                  final id = await Navigator.push<String>(
+                    context,
+                    MaterialPageRoute(builder: (context) => const EscanerQrPage()),
+                  );
+                  if (id == null || !mounted) return;
+                  final encontrados = equipos.where((equipo) => equipo.id == id);
+                  if (encontrados.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('El QR no corresponde a un equipo registrado.')),
+                    );
+                    return;
+                  }
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DetalleEquipoPage(equipo: encontrados.first),
+                    ),
+                  );
+                  await actualizarDatos();
+                },
+              ),
+              const SizedBox(height: 10),
               _BotonAccion(
                 icono: Icons.add,
                 texto: 'Registrar equipo',

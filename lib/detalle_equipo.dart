@@ -4,6 +4,8 @@ import 'equipo.dart';
 import 'manuales.dart';
 import 'mantenimiento.dart';
 import 'historial.dart';
+import 'pruebas_funcionales.dart';
+import 'codigo_qr.dart';
 
 class DetalleEquipoPage extends StatelessWidget {
   final Equipo equipo;
@@ -337,6 +339,41 @@ class DetalleEquipoPage extends StatelessWidget {
               ),
             ),
 
+            const SizedBox(height: 10),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PruebasFuncionalesPage(equipo: equipo),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.fact_check),
+                label: const Text('Pruebas funcionales y checklist'),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(18)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CodigoQrEquipoPage(equipo: equipo),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('Generar código QR'),
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(18)),
+              ),
+            ),
             const SizedBox(height: 25),
 
             // INFORMACIÓN FUTURA

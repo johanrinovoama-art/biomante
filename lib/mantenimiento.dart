@@ -26,6 +26,10 @@ class _MantenimientoPageState extends State<MantenimientoPage> {
   String tipoMantenimiento = 'Preventivo';
   String resultado = 'Equipo operativo';
   DateTime? proximoMantenimiento;
+  DateTime? fechaFalla;
+  DateTime? inicioReparacion;
+  DateTime? finReparacion;
+  DateTime? retornoOperacion;
   bool guardando = false;
 
   @override
@@ -52,6 +56,42 @@ class _MantenimientoPageState extends State<MantenimientoPage> {
     }
   }
 
+  Future<DateTime?> seleccionarFechaHora(String titulo, DateTime? actual) async {
+    final base = actual ?? DateTime.now();
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: titulo,
+    );
+    if (fecha == null || !mounted) return actual;
+
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(base),
+      helpText: 'Hora: $titulo',
+    );
+    if (hora == null) return actual;
+
+    return DateTime(fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
+  }
+
+  Widget selectorFechaHora(String titulo, DateTime? valor, ValueChanged<DateTime?> onChanged) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(titulo),
+      subtitle: Text(valor == null ? 'No registrada' : '${mostrarFecha(valor)} ${TimeOfDay.fromDateTime(valor).format(context)}'),
+      trailing: const Icon(Icons.event),
+      onTap: guardando
+          ? null
+          : () async {
+              final nueva = await seleccionarFechaHora(titulo, valor);
+              if (nueva != null && mounted) onChanged(nueva);
+            },
+    );
+  }
+
   String mostrarFecha(DateTime fecha) {
     return '${fecha.day.toString().padLeft(2, '0')}/'
         '${fecha.month.toString().padLeft(2, '0')}/'
@@ -67,6 +107,30 @@ class _MantenimientoPageState extends State<MantenimientoPage> {
         const SnackBar(content: Text('Completa los campos obligatorios')),
       );
       return;
+    }
+
+    if (tipoMantenimiento == 'Correctivo') {
+      if (inicioReparacion != null && finReparacion != null &&
+          finReparacion!.isBefore(inicioReparacion!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El fin de reparación no puede ser anterior al inicio.')),
+        );
+        return;
+      }
+      if (inicioReparacion != null && retornoOperacion != null &&
+          retornoOperacion!.isBefore(inicioReparacion!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El retorno a operación no puede ser anterior al inicio de reparación.')),
+        );
+        return;
+      }
+      if (fechaFalla != null && inicioReparacion != null &&
+          inicioReparacion!.isBefore(fechaFalla!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El inicio de reparación no puede ser anterior a la fecha de falla.')),
+        );
+        return;
+      }
     }
 
     final fechaRegistro = DateTime.now();
@@ -85,6 +149,10 @@ class _MantenimientoPageState extends State<MantenimientoPage> {
       resultado: resultado,
       observaciones: observacionesController.text.trim(),
       fecha: fechaRegistro,
+      fechaFalla: fechaFalla,
+      inicioReparacion: inicioReparacion,
+      finReparacion: finReparacion,
+      retornoOperacion: retornoOperacion,
     );
 
     setState(() => guardando = true);
@@ -171,7 +239,27 @@ class _MantenimientoPageState extends State<MantenimientoPage> {
                       if (valor != null) setState(() => tipoMantenimiento = valor);
                     },
             ),
-            const SizedBox(height: 15),
+            if (tipoMantenimiento == 'Correctivo') ...[
+              const SizedBox(height: 8),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Tiempos de falla y reparación', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text('Registra fecha y hora reales. Estos datos permiten calcular MTBF, MTTR y disponibilidad.', style: TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      selectorFechaHora('Fecha y hora de la falla', fechaFalla, (v) => setState(() => fechaFalla = v)),
+                      selectorFechaHora('Inicio de reparación', inicioReparacion, (v) => setState(() => inicioReparacion = v)),
+                      selectorFechaHora('Fin de reparación', finReparacion, (v) => setState(() => finReparacion = v)),
+                      selectorFechaHora('Retorno a operación', retornoOperacion, (v) => setState(() => retornoOperacion = v)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 15),
+            ],
             TextField(
               controller: tecnicoController,
               decoration: const InputDecoration(

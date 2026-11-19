@@ -6,10 +6,12 @@ import 'almacen_documentos.dart';
 import 'documento.dart';
 import 'equipo.dart';
 import 'mantenimiento_modelo.dart';
+import 'prueba_funcional_modelo.dart';
 
 List<Equipo> equipos = [];
 List<Mantenimiento> mantenimientos = [];
 List<Documento> documentos = [];
+List<PruebaFuncional> pruebasFuncionales = [];
 
 bool _datosInicializados = false;
 bool get datosInicializados => _datosInicializados;
@@ -122,6 +124,20 @@ Future<void> guardarDatos() async {
     };
   }).toList();
 
+  final pruebasJson = pruebasFuncionales.map((prueba) => {
+    'id': prueba.id,
+    'equipoId': prueba.equipoId,
+    'equipoInventario': prueba.equipoInventario,
+    'tecnico': prueba.tecnico,
+    'fecha': prueba.fecha.toIso8601String(),
+    'checklist': prueba.checklist,
+    'observaciones': prueba.observaciones,
+    'evidencias': prueba.evidencias.map((evidencia) => {
+      'nombre': evidencia.nombre,
+      'almacenamientoId': evidencia.almacenamientoId,
+    }).toList(),
+  }).toList();
+
   final documentosJson = documentos.map((documento) {
     return {
       'nombre': documento.nombre,
@@ -147,10 +163,15 @@ Future<void> guardarDatos() async {
     'documentos',
     jsonEncode(documentosJson),
   );
+  final resultadoPruebas = await prefs.setString(
+    'pruebasFuncionales',
+    jsonEncode(pruebasJson),
+  );
 
   if (!resultadoEquipos ||
       !resultadoMantenimientos ||
-      !resultadoDocumentos) {
+      !resultadoDocumentos ||
+      !resultadoPruebas) {
     throw Exception('No se pudieron guardar todos los datos de Biomante.');
   }
 
@@ -176,6 +197,10 @@ Future<void> cargarDatos() async {
   final datosDocumentos = _leerLista(
     prefs.getString('documentos'),
     'documentos',
+  );
+  final datosPruebas = _leerLista(
+    prefs.getString('pruebasFuncionales'),
+    'pruebas funcionales',
   );
 
   final equiposNuevos = datosEquipos.asMap().entries.map((entrada) {
@@ -240,9 +265,39 @@ Future<void> cargarDatos() async {
     );
   }).toList();
 
+  final pruebasNuevas = datosPruebas.map((elemento) {
+    final dato = Map<String, dynamic>.from(elemento as Map);
+    final checklistDato = dato['checklist'];
+    final checklist = checklistDato is Map
+        ? checklistDato.map((key, value) => MapEntry(key.toString(), value.toString()))
+        : <String, String>{};
+    final evidenciasDato = dato['evidencias'];
+    final evidencias = evidenciasDato is List
+        ? evidenciasDato.map((elementoEvidencia) {
+            final evidencia = Map<String, dynamic>.from(elementoEvidencia as Map);
+            return EvidenciaFuncional(
+              nombre: evidencia['nombre']?.toString() ?? 'Evidencia',
+              almacenamientoId: evidencia['almacenamientoId']?.toString() ?? '',
+            );
+          }).toList()
+        : <EvidenciaFuncional>[];
+
+    return PruebaFuncional(
+      id: dato['id']?.toString(),
+      equipoId: dato['equipoId']?.toString() ?? '',
+      equipoInventario: dato['equipoInventario']?.toString() ?? '',
+      tecnico: dato['tecnico']?.toString() ?? '',
+      fecha: _leerFecha(dato['fecha']) ?? DateTime.now(),
+      checklist: checklist,
+      observaciones: dato['observaciones']?.toString() ?? '',
+      evidencias: evidencias,
+    );
+  }).toList();
+
   equipos = equiposNuevos;
   mantenimientos = mantenimientosNuevos;
   documentos = documentosNuevos;
+  pruebasFuncionales = pruebasNuevas;
   _datosInicializados = true;
 
   final hayMigraciones = documentos.any(
