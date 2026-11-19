@@ -30,17 +30,14 @@ jobs:
             flutter create . --platforms=android,ios --org com.biomante --project-name biomante
           fi
           python3 - <<'PY'
+          import plistlib
           from pathlib import Path
           path = Path("ios/Runner/Info.plist")
-          content = path.read_text()
-          key = "<key>NSCameraUsageDescription</key>"
-          if key not in content:
-              content = content.replace(
-                  "<dict>",
-                  "<dict>\\n\\t<key>NSCameraUsageDescription</key>\\n\\t<string>Biomante uses the camera to scan equipment QR codes.</string>",
-                  1,
-              )
-              path.write_text(content)
+          with path.open("rb") as source:
+              values = plistlib.load(source)
+          values["NSCameraUsageDescription"] = "Biomante uses the camera to scan equipment QR codes."
+          with path.open("wb") as target:
+              plistlib.dump(values, target, fmt=plistlib.FMT_XML, sort_keys=False)
           PY
 
       - name: Check AI backend syntax
