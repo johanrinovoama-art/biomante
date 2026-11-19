@@ -1,0 +1,70 @@
+name: Generate native Flutter platforms
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/scaffold-native-platforms.yml
+
+permissions:
+  contents: write
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android and iOS projects
+        run: flutter create . --platforms=android,ios --org com.biomante --project-name biomante
+
+      - name: Add iOS camera privacy description
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("ios/Runner/Info.plist")
+          content = path.read_text()
+          key = "<key>NSCameraUsageDescription</key>"
+          if key not in content:
+              marker = "<dict>"
+              if marker not in content:
+                  raise SystemExit("Info.plist does not contain the root dict.")
+              content = content.replace(
+                  marker,
+                  marker + "\n\t<key>NSCameraUsageDescription</key>\n\t<string>Biomante uses the camera to scan equipment QR codes.</string>",
+                  1,
+              )
+              path.write_text(content)
+          PY
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart code
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run Flutter tests
+        run: flutter test
+
+      - name: Build Android debug APK
+        run: flutter build apk --debug
+
+      - name: Commit generated native projects
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android ios
+          if git diff --cached --quiet; then
+            echo "Native platform files already exist."
+            exit 0
+          fi
+          git commit -m "Generate Android and iOS platform scaffolds"
+          git push origin HEAD:main
