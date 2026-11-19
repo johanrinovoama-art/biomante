@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'almacen_documentos.dart';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
+import 'almacen_documentos.dart';
+import 'asistente_tecnico.dart';
 import 'datos.dart';
 import 'documento.dart';
 import 'equipo.dart';
-import 'asistente_tecnico.dart';
 
 class ManualesPage extends StatefulWidget {
   final Equipo equipo;
@@ -23,395 +24,245 @@ class ManualesPage extends StatefulWidget {
 }
 
 class _ManualesPageState extends State<ManualesPage> {
-
-  // =============================================================
-  // SUBIR DOCUMENTO PDF
-  // =============================================================
-
-  Future<void> subirDocumento() async {
-    try {
-      final resultado = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        withData: true,
-      );
-
-      if (resultado == null) {
-        return;
-      }
-
-      final archivo = resultado.files.first;
-
-      if (archivo.bytes == null) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No se pudo leer el archivo seleccionado.',
-            ),
-          ),
-        );
-
-        return;
-      }
-
-      debugPrint(
-        'Archivo seleccionado: ${archivo.name}',
-      );
-
-      debugPrint(
-        'Bytes originales: ${archivo.bytes!.length}',
-      );
-
-      if (archivo.bytes!.isEmpty) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'El archivo seleccionado está vacío.',
-            ),
-          ),
-        );
-
-        return;
-      }
-
-      // Seleccionar tipo de documento
-      final tipo = await seleccionarTipoDocumento();
-
-      if (tipo == null) {
-        return;
-      }
-
-      // Convertir PDF a Base64
-      final contenidoBase64 = base64Encode(
-        archivo.bytes!,
-      );
-
-      debugPrint(
-        'Base64 generado: ${contenidoBase64.length} caracteres',
-      );
-
-      // Crear documento
-      final documento = Documento(
-        nombre: archivo.name,
-        tipo: tipo,
-        equipoInventario: widget.equipo.inventario,
-        contenidoBase64: contenidoBase64,
-      );
-
-      // Agregar documento
-      documentos.add(documento);
-
-      // Guardar
-      await guardarDatos();
-
-      if (!mounted) return;
-
-      setState(() {});
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Documento guardado correctamente.',
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint(
-        'ERROR AL SUBIR DOCUMENTO: $e',
-      );
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error al subir el documento: $e',
-          ),
-        ),
-      );
-    }
-  }
-
-  // =============================================================
-  // SELECCIONAR TIPO DE DOCUMENTO
-  // =============================================================
-
-  Future<String?> seleccionarTipoDocumento() async {
-    return showDialog<String>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text(
-            'Tipo de documento',
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _opcionTipo(
-                'Manual de usuario',
-                Icons.menu_book,
-              ),
-              _opcionTipo(
-                'Manual de servicio',
-                Icons.build,
-              ),
-              _opcionTipo(
-                'Manual técnico',
-                Icons.engineering,
-              ),
-              _opcionTipo(
-                'Protocolo',
-                Icons.assignment,
-              ),
-              _opcionTipo(
-                'Otro documento',
-                Icons.description,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // =============================================================
-  // OPCIÓN DE TIPO
-  // =============================================================
-
-  Widget _opcionTipo(
-    String tipo,
-    IconData icono,
-  ) {
-    return ListTile(
-      leading: Icon(icono),
-      title: Text(tipo),
-      onTap: () {
-        Navigator.pop(
-          context,
-          tipo,
-        );
-      },
-    );
-  }
-
-  // =============================================================
-  // DOCUMENTOS DEL EQUIPO
-  // =============================================================
+  bool _ocupado = false;
 
   List<Documento> get documentosDelEquipo {
     return documentos.where((documento) {
-      return documento.equipoInventario ==
-          widget.equipo.inventario;
+      if (documento.equipoId.isNotEmpty) {
+        return documento.equipoId == widget.equipo.id;
+      }
+
+      // Compatibilidad con documentos históricos que aún no tienen ID.
+      return widget.equipo.inventario.trim().isNotEmpty &&
+          documento.equipoInventario.trim() ==
+              widget.equipo.inventario.trim();
     }).toList();
   }
 
-  // =============================================================
-  // ABRIR DOCUMENTO
-  // =============================================================
-
-  void abrirDocumento(
-    Documento documento,
-  ) {
-    try {
-      debugPrint(
-        'Abriendo documento: ${documento.nombre}',
-      );
-
-      debugPrint(
-        'Base64 almacenado: '
-        '${documento.contenidoBase64.length} caracteres',
-      );
-
-      if (documento.contenidoBase64.isEmpty) {
-        throw Exception(
-          'El documento no contiene datos.',
-        );
-      }
-
-      // Convertir Base64 a bytes
-      final Uint8List bytes = base64Decode(
-        documento.contenidoBase64.trim(),
-      );
-
-      debugPrint(
-        'Bytes recuperados: ${bytes.length}',
-      );
-
-      if (bytes.isEmpty) {
-        throw Exception(
-          'El archivo PDF recuperado está vacío.',
-        );
-      }
-
-      // Comprobar encabezado PDF
-      if (bytes.length >= 4) {
-        final encabezado = String.fromCharCodes(
-          bytes.sublist(0, 4),
-        );
-
-        debugPrint(
-          'Encabezado del archivo: $encabezado',
-        );
-
-        if (encabezado != '%PDF') {
-          throw Exception(
-            'El archivo recuperado no parece ser un PDF válido.',
-          );
-        }
-      }
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) {
-            return PdfViewerMemoryPage(
-              titulo: documento.nombre,
-              bytes: bytes,
-            );
-          },
-        ),
-      );
-    } catch (e) {
-      debugPrint(
-        'ERROR AL ABRIR PDF: $e',
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se pudo abrir el documento: $e',
-          ),
-          duration: const Duration(
-            seconds: 8,
-          ),
-        ),
-      );
-    }
+  bool _esPdf(Uint8List bytes) {
+    if (bytes.length < 5) return false;
+    return String.fromCharCodes(bytes.sublist(0, 5)) == '%PDF-';
   }
 
-  // =============================================================
-  // ELIMINAR DOCUMENTO
-  // =============================================================
-
-  Future<void> eliminarDocumento(
-    Documento documento,
-  ) async {
-    final confirmar = await showDialog<bool>(
+  Future<String?> _seleccionarTipoDocumento() {
+    return showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text(
-            'Eliminar documento',
-          ),
-          content: Text(
-            '¿Deseas eliminar "${documento.nombre}"?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
-                  false,
-                );
-              },
-              child: const Text(
-                'Cancelar',
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
-                  true,
-                );
-              },
-              child: const Text(
-                'Eliminar',
-              ),
-            ),
+      builder: (context) => AlertDialog(
+        title: const Text('Tipo de documento'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _opcionTipo('Manual de usuario', Icons.menu_book),
+            _opcionTipo('Manual de servicio', Icons.build),
+            _opcionTipo('Manual técnico', Icons.engineering),
+            _opcionTipo('Protocolo', Icons.assignment),
+            _opcionTipo('Otro documento', Icons.description),
           ],
-        );
-      },
-    );
-
-    if (confirmar != true) {
-      return;
-    }
-
-    documentos.remove(
-      documento,
-    );
-
-    await guardarDatos();
-
-    if (!mounted) return;
-
-    setState(() {});
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Documento eliminado.',
         ),
       ),
     );
   }
 
-  // =============================================================
-  // INTERFAZ
-  // =============================================================
+  Widget _opcionTipo(String tipo, IconData icono) {
+    return ListTile(
+      leading: Icon(icono),
+      title: Text(tipo),
+      onTap: () => Navigator.pop(context, tipo),
+    );
+  }
 
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final documentosEquipo =
-        documentosDelEquipo;
+  Future<void> subirDocumento() async {
+    if (_ocupado) return;
+    setState(() => _ocupado = true);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Manuales y documentación',
+    String? almacenamientoId;
+    Documento? documentoCreado;
+
+    try {
+      final resultado = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+        withData: true,
+      );
+      if (resultado == null || resultado.files.isEmpty) return;
+
+      final archivo = resultado.files.first;
+      final bytes = archivo.bytes;
+
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('No se pudo leer el archivo seleccionado.');
+      }
+      if (!_esPdf(bytes)) {
+        throw Exception('El archivo seleccionado no tiene una firma PDF válida.');
+      }
+
+      if (!mounted) return;
+      final tipo = await _seleccionarTipoDocumento();
+      if (tipo == null || !mounted) return;
+
+      almacenamientoId = 'doc_${DateTime.now().microsecondsSinceEpoch}';
+      await AlmacenDocumentos.guardar(almacenamientoId, bytes);
+
+      documentoCreado = Documento(
+        nombre: archivo.name,
+        tipo: tipo,
+        equipoId: widget.equipo.id,
+        equipoInventario: widget.equipo.inventario,
+        contenidoBase64: '',
+        almacenamientoId: almacenamientoId,
+      );
+
+      documentos.add(documentoCreado);
+      try {
+        await guardarDatos();
+      } catch (_) {
+        documentos.remove(documentoCreado);
+        rethrow;
+      }
+
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Documento guardado correctamente.')),
+      );
+    } catch (error) {
+      if (documentoCreado != null) {
+        documentos.remove(documentoCreado);
+      }
+      if (almacenamientoId != null) {
+        try {
+          await AlmacenDocumentos.eliminar(almacenamientoId);
+        } catch (errorLimpieza) {
+          debugPrint('No se pudo limpiar el PDF temporal: $errorLimpieza');
+        }
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo subir el documento: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  Future<void> abrirDocumento(Documento documento) async {
+    try {
+      Uint8List? bytes;
+      final id = documento.almacenamientoId;
+
+      if (id != null && id.isNotEmpty) {
+        bytes = await AlmacenDocumentos.leer(id);
+      }
+
+      // Respaldo para documentos históricos que aún están en Base64.
+      if ((bytes == null || bytes.isEmpty) &&
+          documento.contenidoBase64.trim().isNotEmpty) {
+        bytes = base64Decode(documento.contenidoBase64.trim());
+      }
+
+      if (bytes == null || bytes.isEmpty || !_esPdf(bytes)) {
+        throw Exception('No se encontró un PDF válido en el almacenamiento.');
+      }
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PdfViewerMemoryPage(
+            titulo: documento.nombre,
+            bytes: bytes!,
+          ),
         ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo abrir el documento: $error'),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    }
+  }
+
+  Future<void> eliminarDocumento(Documento documento) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar documento'),
+        content: Text('¿Deseas eliminar "${documento.nombre}"?'),
         actions: [
-          IconButton(
-            tooltip: 'Subir documento',
-            icon: const Icon(
-              Icons.upload_file,
-            ),
-            onPressed: subirDocumento,
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
+    );
 
+    if (confirmar != true || !mounted) return;
+    final indice = documentos.indexOf(documento);
+    if (indice < 0) return;
+
+    documentos.removeAt(indice);
+    try {
+      await guardarDatos();
+    } catch (error) {
+      documentos.insert(indice, documento);
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar el registro: $error')),
+      );
+      return;
+    }
+
+    final id = documento.almacenamientoId;
+    if (id != null && id.isNotEmpty) {
+      try {
+        await AlmacenDocumentos.eliminar(id);
+      } catch (error) {
+        debugPrint('No se pudo eliminar el archivo $id: $error');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Documento eliminado.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final documentosEquipo = documentosDelEquipo;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Manuales y documentación'),
+        actions: [
+          IconButton(
+            tooltip: 'Subir documento',
+            onPressed: _ocupado ? null : subirDocumento,
+            icon: const Icon(Icons.upload_file),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-
-          // =====================================================
-          // INFORMACIÓN DEL EQUIPO
-          // =====================================================
-
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.medical_services,
-                    size: 45,
-                  ),
-
-                  const SizedBox(
-                    height: 12,
-                  ),
-
+                  const Icon(Icons.medical_services, size: 45),
+                  const SizedBox(height: 12),
                   Text(
                     widget.equipo.nombre,
                     style: const TextStyle(
@@ -419,248 +270,104 @@ class _ManualesPageState extends State<ManualesPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
-                  const SizedBox(
-                    height: 5,
-                  ),
-
+                  const SizedBox(height: 5),
                   Text(
-                    '${widget.equipo.marca} • '
-                    '${widget.equipo.modelo}',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
-                    ),
+                    '${widget.equipo.marca} • ${widget.equipo.modelo}',
+                    style: const TextStyle(color: Colors.grey),
                   ),
-
-                  const SizedBox(
-                    height: 5,
-                  ),
-
+                  const SizedBox(height: 5),
                   Text(
-                    'Inventario: '
-                    '${widget.equipo.inventario.isEmpty ? "No registrado" : widget.equipo.inventario}',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                    ),
+                    'Inventario: ${widget.equipo.inventario.isEmpty ? "No registrado" : widget.equipo.inventario}',
                   ),
                 ],
               ),
             ),
           ),
-
-          const SizedBox(
-            height: 20,
-          ),
-
-          // =====================================================
-          // SUBIR PDF
-          // =====================================================
-
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: subirDocumento,
-              icon: const Icon(
-                Icons.upload_file,
-              ),
-              label: const Text(
-                'Subir documento PDF',
+              onPressed: _ocupado ? null : subirDocumento,
+              icon: const Icon(Icons.upload_file),
+              label: Text(
+                _ocupado ? 'Guardando documento...' : 'Subir documento PDF',
               ),
             ),
           ),
-
-          const SizedBox(
-            height: 25,
-          ),
-
-          // =====================================================
-          // DOCUMENTOS
-          // =====================================================
-
+          const SizedBox(height: 24),
           const Text(
             'Documentos del equipo',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-
-          const SizedBox(
-            height: 12,
-          ),
-
+          const SizedBox(height: 12),
           if (documentosEquipo.isEmpty)
-
-            Card(
+            const Card(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    Icon(
-                      Icons.folder_open,
-                      size: 50,
-                      color: Colors.grey.shade500,
-                    ),
-
-                    const SizedBox(
-                      height: 10,
-                    ),
-
-                    const Text(
-                      'No hay documentos cargados.',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height: 5,
-                    ),
-
+                    Icon(Icons.folder_open, size: 50),
+                    SizedBox(height: 10),
                     Text(
-                      'Sube el manual o documento técnico '
-                      'correspondiente a este equipo.',
+                      'No hay documentos cargados.',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'Sube el manual o documento técnico correspondiente a este equipo.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                      ),
                     ),
                   ],
                 ),
               ),
             )
-
           else
-
             ...documentosEquipo.map(
-              (documento) {
-                return Card(
-                  margin: const EdgeInsets.only(
-                    bottom: 12,
+              (documento) => Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.picture_as_pdf),
                   ),
-
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(
-                        Icons.picture_as_pdf,
-                      ),
-                    ),
-
-                    title: Text(
-                      documento.nombre,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    subtitle: Text(
-                      documento.tipo,
-                    ),
-
-                    trailing:
-                        PopupMenuButton<String>(
-                      onSelected: (opcion) {
-                        if (opcion == 'abrir') {
-                          abrirDocumento(
-                            documento,
-                          );
-                        }
-
-                        if (opcion == 'eliminar') {
-                          eliminarDocumento(
-                            documento,
-                          );
-                        }
-                      },
-
-                      itemBuilder: (context) {
-                        return const [
-                          PopupMenuItem(
-                            value: 'abrir',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.open_in_new,
-                                ),
-                                SizedBox(
-                                  width: 10,
-                                ),
-                                Text(
-                                  'Abrir',
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          PopupMenuItem(
-                            value: 'eliminar',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.delete,
-                                ),
-                                SizedBox(
-                                  width: 10,
-                                ),
-                                Text(
-                                  'Eliminar',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ];
-                      },
-                    ),
-
-                    onTap: () {
-                      abrirDocumento(
-                        documento,
-                      );
+                  title: Text(
+                    documento.nombre,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(documento.tipo),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (opcion) {
+                      if (opcion == 'abrir') {
+                        abrirDocumento(documento);
+                      } else if (opcion == 'eliminar') {
+                        eliminarDocumento(documento);
+                      }
                     },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'abrir', child: Text('Abrir')),
+                      PopupMenuItem(value: 'eliminar', child: Text('Eliminar')),
+                    ],
                   ),
-                );
-              },
+                  onTap: () => abrirDocumento(documento),
+                ),
+              ),
             ),
-
-          const SizedBox(
-            height: 25,
-          ),
-
-          // =====================================================
-          // ASISTENTE TÉCNICO
-          // =====================================================
-
+          const SizedBox(height: 24),
           Card(
             child: ListTile(
-              leading: const CircleAvatar(
-                child: Icon(
-                  Icons.smart_toy,
-                ),
-              ),
-
+              leading: const CircleAvatar(child: Icon(Icons.smart_toy)),
               title: const Text(
                 'Asistente técnico',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-
               subtitle: const Text(
-                'Consulta fallas, diagnóstico y '
-                'posibles soluciones.',
+                'Consulta fallas y orientación inicial del equipo.',
               ),
-
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-              ),
-
+              trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        AsistenteTecnicoPage(
+                    builder: (context) => AsistenteTecnicoPage(
                       equipo: widget.equipo,
                     ),
                   ),
@@ -668,62 +375,11 @@ class _ManualesPageState extends State<ManualesPage> {
               },
             ),
           ),
-
-          const SizedBox(
-            height: 20,
-          ),
-
-          // =====================================================
-          // INFORMACIÓN
-          // =====================================================
-
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-
-              child: Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    size: 28,
-                  ),
-
-                  const SizedBox(
-                    width: 12,
-                  ),
-
-                  Expanded(
-                    child: Text(
-                      'Los documentos se asocian '
-                      'individualmente a cada equipo. '
-                      'Así podrás consultar el manual '
-                      'correspondiente sin mezclar la '
-                      'documentación de otros equipos.',
-                      style: TextStyle(
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(
-            height: 20,
-          ),
         ],
       ),
     );
   }
 }
-
-// =============================================================
-// VISOR PDF
-// =============================================================
 
 class PdfViewerMemoryPage extends StatelessWidget {
   final String titulo;
@@ -736,41 +392,19 @@ class PdfViewerMemoryPage extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          titulo,
-        ),
-      ),
-
+      appBar: AppBar(title: Text(titulo)),
       body: SfPdfViewer.memory(
         bytes,
-
-        onDocumentLoaded: (details) {
-          debugPrint(
-            'PDF cargado correctamente.',
-          );
-        },
-
         onDocumentLoadFailed: (details) {
-          debugPrint(
-            'ERROR PDF: '
-            '${details.description}',
-          );
-
-          ScaffoldMessenger.of(context)
-              .showSnackBar(
+          debugPrint('ERROR PDF: ${details.description}');
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'No se pudo abrir el PDF: '
-                '${details.description}',
+                'No se pudo abrir el PDF: ${details.description}',
               ),
-              duration: const Duration(
-                seconds: 8,
-              ),
+              duration: const Duration(seconds: 8),
             ),
           );
         },

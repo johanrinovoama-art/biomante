@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'equipo.dart';
+
 import 'datos.dart';
+import 'equipo.dart';
 import 'mantenimiento_modelo.dart';
 
 class HistorialPage extends StatelessWidget {
@@ -17,87 +18,84 @@ class HistorialPage extends StatelessWidget {
         '${fecha.year}';
   }
 
-  void mostrarDetalle(
-    BuildContext context,
-    Mantenimiento mantenimiento,
-  ) {
+  void mostrarDetalle(BuildContext context, Mantenimiento mantenimiento) {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(mantenimiento.tipo),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      builder: (context) => AlertDialog(
+        title: Text(mantenimiento.tipo),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Detalle(titulo: 'Fecha', valor: formatearFecha(mantenimiento.fecha)),
+              _Detalle(titulo: 'Técnico responsable', valor: mantenimiento.tecnico),
+              _Detalle(titulo: 'Trabajo realizado', valor: mantenimiento.descripcion),
+              _Detalle(
+                titulo: 'Fallas encontradas',
+                valor: mantenimiento.fallas.isEmpty
+                    ? 'Ninguna registrada'
+                    : mantenimiento.fallas,
+              ),
+              _Detalle(
+                titulo: 'Repuestos utilizados',
+                valor: mantenimiento.repuestos.isEmpty
+                    ? 'Ninguno registrado'
+                    : mantenimiento.repuestos,
+              ),
+              _Detalle(titulo: 'Resultado', valor: mantenimiento.resultado),
+              _Detalle(
+                titulo: 'Observaciones',
+                valor: mantenimiento.observaciones.isEmpty
+                    ? 'Sin observaciones'
+                    : mantenimiento.observaciones,
+              ),
+              if (mantenimiento.fechaFalla != null)
                 _Detalle(
-                  titulo: 'Fecha',
-                  valor: formatearFecha(mantenimiento.fecha),
+                  titulo: 'Fecha de falla',
+                  valor: formatearFecha(mantenimiento.fechaFalla!),
                 ),
+              if (mantenimiento.inicioReparacion != null)
                 _Detalle(
-                  titulo: 'Técnico responsable',
-                  valor: mantenimiento.tecnico,
+                  titulo: 'Inicio de reparación',
+                  valor: formatearFecha(mantenimiento.inicioReparacion!),
                 ),
+              if (mantenimiento.finReparacion != null)
                 _Detalle(
-                  titulo: 'Trabajo realizado',
-                  valor: mantenimiento.descripcion,
+                  titulo: 'Fin de reparación',
+                  valor: formatearFecha(mantenimiento.finReparacion!),
                 ),
+              if (mantenimiento.retornoOperacion != null)
                 _Detalle(
-                  titulo: 'Fallas encontradas',
-                  valor: mantenimiento.fallas.isEmpty
-                      ? 'Ninguna registrada'
-                      : mantenimiento.fallas,
+                  titulo: 'Retorno a operación',
+                  valor: formatearFecha(mantenimiento.retornoOperacion!),
                 ),
-                _Detalle(
-                  titulo: 'Repuestos utilizados',
-                  valor: mantenimiento.repuestos.isEmpty
-                      ? 'Ninguno registrado'
-                      : mantenimiento.repuestos,
-                ),
-                _Detalle(
-                  titulo: 'Resultado',
-                  valor: mantenimiento.resultado,
-                ),
-                _Detalle(
-                  titulo: 'Observaciones',
-                  valor: mantenimiento.observaciones.isEmpty
-                      ? 'Sin observaciones'
-                      : mantenimiento.observaciones,
-                ),
-              ],
-            ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final historial = mantenimientos
-        .where(
-          (mantenimiento) =>
-              mantenimiento.equipoInventario == equipo.inventario,
-        )
-        .toList();
+    final historial = mantenimientos.where((mantenimiento) {
+      if (mantenimiento.equipoId.isNotEmpty) {
+        return mantenimiento.equipoId == equipo.id;
+      }
 
-    historial.sort(
-      (a, b) => b.fecha.compareTo(a.fecha),
-    );
+      return equipo.inventario.trim().isNotEmpty &&
+          mantenimiento.equipoInventario.trim() == equipo.inventario.trim();
+    }).toList()
+      ..sort((a, b) => b.fecha.compareTo(a.fecha));
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial de mantenimiento'),
-      ),
-
+      appBar: AppBar(title: const Text('Historial de mantenimiento')),
       body: historial.isEmpty
           ? const Center(
               child: Padding(
@@ -105,10 +103,7 @@ class HistorialPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.history,
-                      size: 70,
-                    ),
+                    Icon(Icons.history, size: 70),
                     SizedBox(height: 15),
                     Text(
                       'No hay mantenimientos',
@@ -131,31 +126,19 @@ class HistorialPage extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               itemCount: historial.length,
               itemBuilder: (context, index) {
-                final Mantenimiento mantenimiento =
-                    historial[index];
-
-                final esPreventivo =
-                    mantenimiento.tipo == 'Preventivo';
+                final mantenimiento = historial[index];
+                final esPreventivo = mantenimiento.tipo == 'Preventivo';
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-
                   child: ListTile(
                     leading: CircleAvatar(
-                      child: Icon(
-                        esPreventivo
-                            ? Icons.build
-                            : Icons.warning,
-                      ),
+                      child: Icon(esPreventivo ? Icons.build : Icons.warning),
                     ),
-
                     title: Text(
                       mantenimiento.tipo,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 5),
                       child: Text(
@@ -164,19 +147,9 @@ class HistorialPage extends StatelessWidget {
                         'Resultado: ${mantenimiento.resultado}',
                       ),
                     ),
-
                     isThreeLine: true,
-
-                    trailing: const Icon(
-                      Icons.chevron_right,
-                    ),
-
-                    onTap: () {
-                      mostrarDetalle(
-                        context,
-                        mantenimiento,
-                      );
-                    },
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => mostrarDetalle(context, mantenimiento),
                   ),
                 );
               },
@@ -189,10 +162,7 @@ class _Detalle extends StatelessWidget {
   final String titulo;
   final String valor;
 
-  const _Detalle({
-    required this.titulo,
-    required this.valor,
-  });
+  const _Detalle({required this.titulo, required this.valor});
 
   @override
   Widget build(BuildContext context) {
@@ -201,12 +171,7 @@ class _Detalle extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            titulo,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(valor),
         ],
