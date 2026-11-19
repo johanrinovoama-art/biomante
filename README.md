@@ -43,6 +43,12 @@ Los equipos, mantenimientos y metadatos de documentos se guardan localmente. Los
 
 > Los datos locales no se sincronizan automáticamente entre dispositivos. Para un despliegue multiusuario se requiere incorporar un backend y autenticación.
 
+## Documentación del proyecto
+
+- [Manual de usuario](docs/manual_usuario.md)
+- [Manual técnico](docs/manual_tecnico.md)
+- [Backend del asistente IA](backend/README.md)
+
 ## Estado del desarrollo
 
-Biomante está en desarrollo académico. Los indicadores de confiabilidad, informes técnicos, checklist, pruebas funcionales, evidencias, generación QR e integración con un servicio de IA requieren módulos adicionales antes de considerarse finalizados.
+Biomante está en desarrollo académico. Los módulos de checklist, pruebas funcionales, evidencias fotográficas, indicadores, reportes PDF y QR están incorporados en la rama de estabilización. La IA requiere desplegar el backend y configurar credenciales del proveedor.
